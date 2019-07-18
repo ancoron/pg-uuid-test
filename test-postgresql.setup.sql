@@ -1,7 +1,8 @@
 
-DROP TABLE IF EXISTS uuid_v1_ext;
-DROP TABLE IF EXISTS uuid_serial;
-DROP TABLE IF EXISTS uuid_v1;
+DROP TABLE IF EXISTS t_uuid_ext;
+DROP TABLE IF EXISTS t_uuid_serial;
+DROP TABLE IF EXISTS t_uuid;
+DROP TABLE IF EXISTS t_uuid_v1;
 
 -- FROM: https://github.com/ancoron/pg-uuid-ext
 CREATE EXTENSION IF NOT EXISTS uuid_ext;
@@ -99,10 +100,12 @@ CREATE OR REPLACE VIEW public.view_index_bloat AS
    FROM raw_bloat
 ;
 
-CREATE TABLE uuid_v1 (id uuid PRIMARY KEY USING INDEX TABLESPACE faster) TABLESPACE fast;
-CREATE TABLE uuid_serial (id uuid PRIMARY KEY USING INDEX TABLESPACE faster) TABLESPACE fast;
+CREATE TABLE t_uuid (id uuid PRIMARY KEY USING INDEX TABLESPACE faster) TABLESPACE fast;
+CREATE TABLE t_uuid_serial (id uuid PRIMARY KEY USING INDEX TABLESPACE faster) TABLESPACE fast;
 
 -- timestamp-only index...
-CREATE TABLE uuid_v1_ext (id uuid) TABLESPACE fast;
-CREATE UNIQUE INDEX idx_uuid_v1_ext ON uuid_v1_ext (id uuid_timestamp_ops) TABLESPACE faster;
+CREATE TABLE t_uuid_ext (id uuid) TABLESPACE fast;
+CREATE UNIQUE INDEX idx_uuid_ext ON t_uuid_ext (id uuid_timestamp_ops) TABLESPACE faster;
+
+CREATE TABLE t_uuid_v1 (id uuid_v1 PRIMARY KEY USING INDEX TABLESPACE faster) TABLESPACE fast;
 
