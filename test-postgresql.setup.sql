@@ -7,6 +7,9 @@ DROP TABLE IF EXISTS t_uuid_v1;
 -- FROM: https://github.com/ancoron/pg-uuid-ext
 CREATE EXTENSION IF NOT EXISTS uuid_ext;
 
+-- FROM: https://github.com/ancoron/pg-uuid-v1
+CREATE EXTENSION IF NOT EXISTS uuid_v1;
+
 -- create view to determine bloat later on...
 CREATE OR REPLACE VIEW public.view_index_bloat AS
  WITH btree_index_atts AS (
@@ -109,3 +112,4 @@ CREATE UNIQUE INDEX idx_uuid_ext ON t_uuid_ext (id uuid_timestamp_ops) TABLESPAC
 
 CREATE TABLE t_uuid_v1 (id uuid_v1 PRIMARY KEY USING INDEX TABLESPACE faster) TABLESPACE fast;
 
+CHECKPOINT;
