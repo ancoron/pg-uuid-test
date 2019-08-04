@@ -9,7 +9,7 @@ ROWS_DEL_B=5
 ROWS_ADD=17
 
 tmpfile=$(mktemp)
-logfile=test-postgresql.log
+logfile=test-postgresql-v1.log
 
 cleanup()
 {
@@ -43,7 +43,7 @@ if [ -f $logfile ]; then
     mv -v $logfile "$(basename $logfile .log)-$(stat --printf='%Y' $logfile).log"
 fi
 
-if [ -f data.serial.a.txt ]; then
+if [ -f data.v1.a.txt ]; then
     echo "Reusing existing test data..."
 else
     [ -d "$path_generator" ] || error "Path to Maven project clone required from: https://github.com/ancoron/java-uuid-serial"
@@ -53,24 +53,22 @@ else
     echo "Preparing test data..."
     sed "${offset_add} {q}" "$path_generator/target/uuids.v1.historic.txt" > data.v1.a.txt
     sed -n "${offset_add_first},\$p" "$path_generator/target/uuids.v1.historic.txt" > data.v1.b.txt
-    sed "${offset_add} {q}" "$path_generator/target/uuids.serial.historic.txt" > data.serial.a.txt
-    sed -n "${offset_add_first},\$p" "$path_generator/target/uuids.serial.historic.txt" > data.serial.b.txt
 
     echo "...remove unnecessary files..."
     mvn -f "$path_generator/pom.xml" clean
 fi
 
 TEST_UUID_A=$(sed -n "${offset_del_a} {p;q}" data.v1.a.txt)
-TEST_UUID_A_SERIAL=$(sed -n "${offset_del_a} {p;q}" data.serial.a.txt)
-
 TEST_UUID_B=$(sed -n "${offset_del_b} {p;q}" data.v1.a.txt)
-TEST_UUID_B_SERIAL=$(sed -n "${offset_del_b} {p;q}" data.serial.a.txt)
 
 [ -n "$TEST_UUID_A" ] || error "No UUID selected for tests - please check test data"
 [ -n "$TEST_UUID_B" ] || error "No UUID selected for tests - please check test data"
 
 echo "Verifying sudo..."
 sudo -u postgres true || error "Initialize sudo for user 'postgres' first"
+
+echo "Preparing database '${PG_DATABASE}' ..."
+sudo --non-interactive -u postgres psql --port=${PG_PORT} -1 --file=test-postgresql-v1.setup.sql ${PG_DATABASE} || error "Test setup failed"
 
 TEST_TIMESTAMP_A="$(sudo --non-interactive -u postgres psql --port=${PG_PORT} --tuples-only --no-align -c "SELECT uuid_v1_timestamp('${TEST_UUID_A}'::uuid)" ${PG_DATABASE})"
 TEST_TIMESTAMP_B="$(sudo --non-interactive -u postgres psql --port=${PG_PORT} --tuples-only --no-align -c "SELECT uuid_v1_timestamp('${TEST_UUID_B}'::uuid)" ${PG_DATABASE})"
@@ -81,13 +79,10 @@ TEST_TIMESTAMP_B="$(sudo --non-interactive -u postgres psql --port=${PG_PORT} --
 DATA_DIR=$(pwd)
 
 # apply variables for test...
-export TEST_UUID_A TEST_UUID_A_SERIAL TEST_UUID_B TEST_UUID_B_SERIAL TEST_TIMESTAMP_A TEST_TIMESTAMP_B DATA_DIR
-envsubst < test-postgresql.sql > $tmpfile
+export TEST_UUID_A TEST_UUID_B TEST_TIMESTAMP_A TEST_TIMESTAMP_B DATA_DIR
+envsubst < test-postgresql-v1.sql > $tmpfile
 
 chmod 644 $tmpfile
-
-echo "Preparing database '${PG_DATABASE} ..."
-sudo --non-interactive -u postgres psql --port=${PG_PORT} -1 --file=test-postgresql.setup.sql ${PG_DATABASE} || error "Test setup failed"
 
 echo "Executing tests ..."
 sudo --non-interactive -u postgres psql --port=${PG_PORT} --echo-all -P pager=off --file=${tmpfile} ${PG_DATABASE} &>$logfile || error "Test execution failed"
