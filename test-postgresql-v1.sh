@@ -89,4 +89,44 @@ sudo --non-interactive -u postgres psql --port=${PG_PORT} --echo-all -P pager=of
 
 cleanup
 
+echo "Summary:"
+
+sed -n -E 's/^ (t_uuid[^ \|]*)\s*\|\s*([^\|]+)-start\s*\|\s*([^ \|]+)\s*$/\1 \2/p; s/^.*cost.*actual.*rows=([1-9][0-9]+).*$/\1/p; s/^COPY ([0-9]+).*/\1/p; s/^Time: (.* \(.*)/\1;/p' $logfile | \
+    tr '\n' ' ' | \
+    tr ';' '\n' | \
+    sed -n -E 's/( (analyze|vacuum)[^ ]*)/\1 0/; s/^\s*(t_.*)/\1/p' | \
+    awk '
+BEGIN {
+    split("t_uuid,t_uuid_v1,t_uuid_64,t_uuid_32", tables, ",");
+    split("copy-in,select-1,analyze-1,select-2,delete-1,vacuum-1,delete-2,copy-add,copy-out,select-3,vacuum-2", sections, ",")
+}
+
+{
+    rows[$2][$1] = $3;
+    millis[$2][$1] = $4;
+    hr[$2][$1] = $6;
+}
+
+END {
+    for (s in sections) {
+        section = sections[s];
+        printf("\n## %s\n", section);
+        for (t in tables) {
+            table = tables[t];
+            perf_ms = millis[section][table];
+            perf = 100.0;
+            if (table != "t_uuid") {
+                perf = 100.0 / millis[section]["t_uuid"] * perf_ms;
+            };
+            perf_r = rows[section][table];
+            if (perf_r > 0) {
+                perf_r = perf_r / perf_ms;
+                printf("%-10s %12.3f ms %s %5.1f %% (%4.0fk rows/s)\n", sprintf("%s:", table), perf_ms, hr[section][table], perf, perf_r);
+            } else {
+                printf("%-10s %12.3f ms %s %5.1f %%\n", sprintf("%s:", table), perf_ms, hr[section][table], perf);
+            }
+        }
+    }
+}'
+
 echo "... all done. Please review the logs at: $logfile"
